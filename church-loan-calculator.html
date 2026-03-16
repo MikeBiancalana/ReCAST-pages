@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Building Fund Planner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0f0e0b;
+    --surface: #1a1914;
+    --surface2: #23221c;
+    --border: #38362c;
+    --gold: #c8a84b;
+    --gold-dim: #8a7030;
+    --gold-bright: #e8c86a;
+    --red: #c0503a;
+    --green: #5a9e6a;
+    --blue: #5a82b0;
+    --text: #e8e0cc;
+    --text-dim: #8a8272;
+    --text-faint: #504e42;
+    --accent: #c8a84b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'EB Garamond', Georgia, serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* Subtle cross watermark */
+  body::before {
+    content: '✦';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 60vw;
+    color: #ffffff04;
+    pointer-events: none;
+    z-index: 0;
+    line-height: 1;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 0 2.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2.5rem;
+  }
+
+  header .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  header h1 {
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-weight: 500;
+    color: var(--gold);
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+  }
+
+  header p {
+    font-style: italic;
+    color: var(--text-dim);
+    font-size: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  /* --- INPUTS PANEL --- */
+  .inputs-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    position: sticky;
+    top: 1.5rem;
+  }
+
+  .panel-header {
+    padding: 1rem 1.25rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+  }
+
+  .input-section {
+    padding: 1rem 1.25rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .input-section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .field {
+    margin-bottom: 0.8rem;
+  }
+
+  .field label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 0.25rem;
+    line-height: 1.3;
+  }
+
+  .field input[type="number"],
+  .field input[type="date"],
+  .field input[type="text"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    padding: 0.4rem 0.6rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .field input:focus {
+    border-color: var(--gold-dim);
+  }
+
+  .field .unit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    margin-left: 0.4rem;
+  }
+
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .field-row input { flex: 1; }
+
+  /* Toggle switches */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .toggle-label {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    flex: 1;
+  }
+
+  .toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .toggle input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: var(--text-faint);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+
+  .toggle input:checked + .toggle-track {
+    background: var(--gold-dim);
+    border-color: var(--gold-dim);
+  }
+
+  .toggle input:checked + .toggle-track::after {
+    transform: translateX(16px);
+    background: var(--gold);
+  }
+
+  /* --- RIGHT PANEL --- */
+  .results-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Summary cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  @media (max-width: 1100px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--gold-dim);
+  }
+
+  .summary-card.danger::before { background: var(--red); }
+  .summary-card.good::before { background: var(--green); }
+  .summary-card.info::before { background: var(--blue); }
+
+  .summary-card .card-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .summary-card .card-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  .summary-card.danger .card-value { color: var(--red); }
+  .summary-card.good .card-value { color: var(--green); }
+  .summary-card.info .card-value { color: var(--blue); }
+
+  .summary-card .card-sub {
+    font-size: 0.78rem;
+    color: var(--text-faint);
+    margin-top: 0.35rem;
+    font-style: italic;
+  }
+
+  /* Chart containers */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.25rem;
+  }
+
+  .chart-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 220px;
+  }
+
+  /* Verdict box */
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .verdict.warn { border-left-color: var(--red); }
+  .verdict.ok { border-left-color: var(--green); }
+
+  .verdict-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+
+  .verdict p {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  .verdict strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .verdict .highlight {
+    color: var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+  }
+
+  /* Event timeline markers */
+  .timeline-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+
+  .event-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 2px;
+    border: 1px solid;
+  }
+
+  .chip-rate { color: var(--red); border-color: var(--red); background: #c0503a12; }
+  .chip-payoff { color: var(--green); border-color: var(--green); background: #5a9e6a12; }
+  .chip-loan { color: var(--blue); border-color: var(--blue); background: #5a82b012; }
+
+  .note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    padding: 0.6rem 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Cash flow table */
+  .milestone-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+
+  .milestone-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    text-align: left;
+    padding: 0.4rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+
+  .milestone-table td {
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid #23221c;
+    color: var(--text-dim);
+    vertical-align: top;
+  }
+
+  .milestone-table td.mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+
+  .milestone-table tr:last-child td { border-bottom: none; }
+
+  td.pos { color: var(--green); }
+  td.neg { color: var(--red); }
+  td.warn { color: var(--gold); }
+
+  /* --- METHODOLOGY SECTION --- */
+  .methodology {
+    margin-top: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .methodology-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  .methodology-toggle:hover { background: var(--surface2); }
+  .methodology[open] .methodology-toggle { border-bottom-color: var(--border); }
+
+  .methodology-toggle-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .methodology-toggle-left .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+  }
+
+  .methodology-toggle-left .title {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  .methodology-chevron {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    transition: transform 0.2s;
+  }
+
+  .methodology[open] .methodology-chevron { transform: rotate(180deg); }
+
+  .methodology summary { list-style: none; }
+  .methodology summary::-webkit-details-marker { display: none; }
+
+  .methodology-body {
+    padding: 1.5rem 1.75rem 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem 2.5rem;
+  }
+
+  @media (max-width: 800px) {
+    .methodology-body { grid-template-columns: 1fr; }
+  }
+
+  .meth-block {}
+
+  .meth-block h3 {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--gold);
+    margin-bottom: 0.6rem;
+    letter-spacing: 0.01em;
+  }
+
+  .meth-block p {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.75;
+    margin-bottom: 0.5rem;
+  }
+
+  .meth-block .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--gold-dim);
+    border-radius: 2px;
+    padding: 0.5rem 0.75rem;
+    margin: 0.5rem 0 0.75rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  .meth-block .caveat {
+    font-style: italic;
+    color: var(--text-faint);
+    font-size: 0.78rem;
+  }
+
+  .meth-divider {
+    grid-column: 1 / -1;
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.25rem 0;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="eyebrow">Building Fund · Financial Analysis</div>
+    <h1>Building Expansion Planner</h1>
+    <p>Modeling the path toward faithful stewardship of resources</p>
+  </header>
+
+  <div class="layout">
+    <!-- INPUTS -->
+    <div class="inputs-panel">
+      <div class="panel-header">Parameters</div>
+
+      <div class="input-section">
+        <div class="section-label">Existing Loan</div>
+
+        <div class="field">
+          <label>Current interest rate</label>
+          <div class="field-row">
+            <input type="number" id="currentRate" value="3.5" step="0.1" min="0">
+            <span class="unit">%</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Interest rate after adjustment</label>
+          <div class="field-row">
+            <input type="number" id="futureRate" value="6.5" step="0.1" min="0">
+            <span class="unit">%</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Balance remaining on existing loan</label>
+          <div class="field-row">
+            <input type="number" id="existingBalance" value="400000" step="1000" min="0">
+            <span class="unit">$</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Date rate adjusts upward</label>
+          <input type="date" id="rateChangeDate" value="2028-03-01">
+        </div>
+
+        <div class="field">
+          <label>Date existing loan paid off</label>
+          <input type="date" id="payoffDate" value="2030-06-01">
+        </div>
+
+        <div class="field">
+          <label>Monthly payment on existing loan</label>
+          <div class="field-row">
+            <input type="number" id="existingPaymentOverride" value="0" step="100" min="0">
+            <span class="unit">$</span>
+          </div>
+          <div id="existingPaymentNote" style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--text-faint);margin-top:0.3rem;line-height:1.4;"></div>
+        </div>
+      </div>
+
+      <div class="input-section">
+        <div class="section-label">Expansion Project</div>
+
+        <div class="field">
+          <label>Total construction cost (today)</label>
+          <div class="field-row">
+            <input type="number" id="constructionCost" value="2000000" step="10000" min="0">
+            <span class="unit">$</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Annual construction cost inflation</label>
+          <div class="field-row">
+            <input type="number" id="costInflation" value="4.0" step="0.5" min="0">
+            <span class="unit">%/yr</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Interest rate on new construction loan</label>
+          <div class="field-row">
+            <input type="number" id="newLoanRate" value="7.0" step="0.1" min="0">
+            <span class="unit">%</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>New loan term</label>
+          <div class="field-row">
+            <input type="number" id="newLoanTerm" value="20" step="1" min="1">
+            <span class="unit">years</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Target date to take new loan</label>
+          <input type="date" id="newLoanDate" value="2028-06-01">
+        </div>
+      </div>
+
+      <div class="input-section">
+        <div class="section-label">Church Finances</div>
+
+        <div class="field">
+          <label>Current cash / reserves on hand</label>
+          <div class="field-row">
+            <input type="number" id="cashOnHand" value="300000" step="1000" min="0">
+            <span class="unit">$</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Monthly giving (income)</label>
+          <div class="field-row">
+            <input type="number" id="monthlyGiving" value="45000" step="500" min="0">
+            <span class="unit">$</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Monthly operating expenses (excl. debt)</label>
+          <div class="field-row">
+            <input type="number" id="monthlyExpenses" value="32000" step="500" min="0">
+            <span class="unit">$</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-section">
+        <div class="section-label">Scenario Options</div>
+
+        <div class="toggle-row">
+          <span class="toggle-label">Pay off existing loan early</span>
+          <label class="toggle">
+            <input type="checkbox" id="earlyPayoff">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+
+        <div class="field" id="earlyPayoffDateField" style="display:none">
+          <label>Early payoff date</label>
+          <input type="date" id="earlyPayoffDate" value="2027-12-01">
+        </div>
+
+        <div class="toggle-row">
+          <span class="toggle-label">Apply freed cash toward down payment</span>
+          <label class="toggle">
+            <input type="checkbox" id="applyFreedCash" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="note">All projections in nominal dollars · monthly granularity</div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-panel">
+
+      <div class="summary-grid" id="summaryGrid">
+        <!-- filled by JS -->
+      </div>
+
+      <div id="verdictBox" class="verdict">
+        <div class="verdict-title">Analysis</div>
+        <p id="verdictText"></p>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Cash Reserves Over Time</div>
+        <div class="timeline-row" id="timelineChips"></div>
+        <div class="chart-wrap">
+          <canvas id="cashChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Monthly Debt Service</div>
+        <div class="chart-wrap">
+          <canvas id="debtChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Key Milestones &amp; Costs</div>
+        <table class="milestone-table" id="milestoneTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Event</th>
+              <th>Cash Position</th>
+              <th>Monthly Payment</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="milestoneBody"></tbody>
+        </table>
+      </div>
+
+      <!-- METHODOLOGY -->
+      <details class="methodology" id="methodologyDetails">
+        <summary class="methodology-toggle">
+          <div class="methodology-toggle-left">
+            <span class="eyebrow">Transparency</span>
+            <span class="title">Methodology &amp; Formulas</span>
+          </div>
+          <span class="methodology-chevron">▼</span>
+        </summary>
+        <div class="methodology-body">
+
+          <div class="meth-block">
+            <h3>Monthly Loan Payment (Amortization)</h3>
+            <p>The standard fixed-payment amortization formula, used for both the existing loan and the new construction loan. Given a principal <em>P</em>, a monthly interest rate <em>r</em> (annual rate ÷ 12), and a term of <em>n</em> months:</p>
+            <div class="formula">payment = P × r × (1 + r)ⁿ / ((1 + r)ⁿ − 1)
+
+If r = 0 (zero-interest):
+payment = P / n</div>
+            <p>When an explicit monthly payment is entered for the existing loan, that amount is used directly each month so long as it exceeds the accrued interest. Any surplus above interest reduces principal. If the explicit payment is less than required interest, the simulation falls back to the amortized minimum.</p>
+          </div>
+
+          <div class="meth-block">
+            <h3>Loan Balance Month-by-Month</h3>
+            <p>Each month the outstanding balance is updated by accruing interest and subtracting the payment:</p>
+            <div class="formula">balance(m+1) = balance(m) × (1 + r) − payment</div>
+            <p>The simulation iterates this every month from today through the full projection horizon. When balance falls to zero or below, the loan is marked paid. If an early lump-sum payoff is triggered, the full remaining balance is subtracted from cash reserves in that month.</p>
+          </div>
+
+          <hr class="meth-divider">
+
+          <div class="meth-block">
+            <h3>Interest Rate Adjustment</h3>
+            <p>The existing loan carries the current rate until the rate-change date, then switches to the adjusted rate for all subsequent months. No refinancing or prepayment penalty is modeled at the transition — only the rate changes. The monthly payment is recalculated each month after the switch based on remaining balance and remaining term:</p>
+            <div class="formula">remaining_term = months from current date to payoff date
+payment_after_adj = monthlyPayment(balance, adjustedRate, remaining_term)</div>
+          </div>
+
+          <div class="meth-block">
+            <h3>Construction Cost Inflation</h3>
+            <p>Construction costs are assumed to grow at a constant annual compound rate from today to the new loan date. The inflated cost at loan time is:</p>
+            <div class="formula">inflated_cost = today_cost × (1 + inflation_rate)^years_delay
+
+years_delay = (new_loan_date − today) / 365.25</div>
+            <p class="caveat">This is a simplifying assumption. Real construction inflation is volatile and project-specific. The input field lets you test a range of assumptions.</p>
+          </div>
+
+          <hr class="meth-divider">
+
+          <div class="meth-block">
+            <h3>Down Payment &amp; New Loan Principal</h3>
+            <p>When "Apply freed cash toward down payment" is enabled, the model uses up to 80% of cash on hand at the new loan date as a down payment, capped at 30% of the inflated construction cost. The remainder becomes the new loan principal:</p>
+            <div class="formula">down_payment = min(cash × 0.8, inflated_cost × 0.3)
+new_loan_principal = inflated_cost − down_payment</div>
+            <p>The 80% and 30% caps preserve a cash buffer and avoid over-leveraging the down payment. They can be thought of as conservative placeholders — the tool is most useful for relative comparisons between scenarios.</p>
+          </div>
+
+          <div class="meth-block">
+            <h3>Net Interest Savings (Early Payoff)</h3>
+            <p>To estimate net savings from paying off early, the model computes the interest that <em>would have accrued</em> between the early payoff date and the scheduled payoff date — at the post-adjustment rate — then subtracts an opportunity cost:</p>
+            <div class="formula">gross_savings = Σ interest(m) for m in [early_payoff → payoff]
+  (at adjusted rate, on the balance at early payoff)
+
+opportunity_cost = payoff_balance × 4% × months / 12
+
+net_savings = gross_savings − opportunity_cost</div>
+            <p class="caveat">The 4% opportunity cost approximates a conservative savings/money-market yield. A higher-yielding alternative (e.g., bonds, equities) would reduce net savings further. This is a first-order estimate.</p>
+          </div>
+
+          <hr class="meth-divider">
+
+          <div class="meth-block">
+            <h3>Cash Flow Projection</h3>
+            <p>Each month, cash changes by:</p>
+            <div class="formula">Δcash = giving − operating_expenses
+         − existing_loan_payment
+         − new_loan_payment (once active)</div>
+            <p>This is a net cash model — it does not distinguish between an operating fund and a capital reserve. All inflows and outflows are pooled. The minimum cash value reported is the lowest point this running balance reaches across the entire projection.</p>
+          </div>
+
+          <div class="meth-block">
+            <h3>Assumptions &amp; Limitations</h3>
+            <p>This tool is a planning aid, not a certified financial model. Key simplifications:</p>
+            <p>• Giving and expenses are held constant (no growth or seasonal variation)<br>
+            • No prepayment penalties on the existing loan<br>
+            • New loan is assumed fully drawn at origination<br>
+            • No investment return modeled on reserves beyond the 4% opportunity cost<br>
+            • Tax treatment of interest is not considered<br>
+            • All dollars are nominal (not inflation-adjusted for purchasing power)</p>
+            <p class="caveat">Results should be reviewed alongside a qualified financial advisor before making binding commitments.</p>
+          </div>
+
+        </div>
+      </details>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== UTILITY =====================
+const $ = id => document.getElementById(id);
+const fmt = (n, d=0) => '$' + Math.round(n).toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d});
+const fmtM = n => (n >= 1e6 ? fmt(n/1e6, 2) + 'M' : n >= 1e3 ? fmt(n/1e3, 1) + 'k' : fmt(n));
+const pct = n => n.toFixed(2) + '%';
+const parseDate = s => new Date(s + 'T12:00:00');
+const addMonths = (d, n) => { let r = new Date(d); r.setMonth(r.getMonth() + n); return r; };
+const monthsBetween = (a, b) => (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
+const fmtDate = d => d.toLocaleDateString('en-US', {month: 'short', year: 'numeric'});
+
+function monthlyPayment(principal, annualRate, termMonths) {
+  if (annualRate === 0) return principal / termMonths;
+  const r = annualRate / 100 / 12;
+  return principal * r * Math.pow(1 + r, termMonths) / (Math.pow(1 + r, termMonths) - 1);
+}
+
+function loanBalance(principal, annualRate, termMonths, monthsPaid) {
+  if (annualRate === 0) return Math.max(0, principal - principal / termMonths * monthsPaid);
+  const r = annualRate / 100 / 12;
+  const pmt = monthlyPayment(principal, annualRate, termMonths);
+  let bal = principal;
+  for (let i = 0; i < monthsPaid; i++) {
+    bal = bal * (1 + r) - pmt;
+    if (bal < 0) return 0;
+  }
+  return Math.max(0, bal);
+}
+
+// ===================== MAIN CALC =====================
+let cashChart = null, debtChart = null;
+
+function recalc() {
+  const currentRate = +$('currentRate').value;
+  const futureRate = +$('futureRate').value;
+  const existingBalance = +$('existingBalance').value;
+  const rateChangeDate = parseDate($('rateChangeDate').value);
+  const payoffDate = parseDate($('payoffDate').value);
+  const existingPaymentOverride = +$('existingPaymentOverride').value;
+  const constructionCost = +$('constructionCost').value;
+  const costInflation = +$('costInflation').value;
+  const newLoanRate = +$('newLoanRate').value;
+  const newLoanTerm = +$('newLoanTerm').value * 12;
+  const newLoanDate = parseDate($('newLoanDate').value);
+  const cashOnHand = +$('cashOnHand').value;
+  const monthlyGiving = +$('monthlyGiving').value;
+  const monthlyExpenses = +$('monthlyExpenses').value;
+  const earlyPayoff = $('earlyPayoff').checked;
+  const earlyPayoffDate = parseDate($('earlyPayoffDate').value);
+  const applyFreedCash = $('applyFreedCash').checked;
+
+  $('earlyPayoffDateField').style.display = earlyPayoff ? 'block' : 'none';
+
+  // Determine simulation range
+  const today = new Date();
+  const endDate = addMonths(newLoanDate, newLoanTerm + 1);
+  const totalMonths = monthsBetween(today, endDate) + 2;
+
+  // Estimate existing loan remaining term to figure monthly payment
+  // We know: balance, rate (current), payoff date -> back-calculate monthly payment
+  const existingTermRemaining = monthsBetween(today, payoffDate);
+  const minExistingPayment = monthlyPayment(existingBalance, currentRate, existingTermRemaining);
+
+  // Show note about override
+  const noteEl = $('existingPaymentNote');
+  if (existingPaymentOverride > 0) {
+    const minInterest = existingBalance * (currentRate / 100 / 12);
+    if (existingPaymentOverride < minInterest) {
+      noteEl.style.color = 'var(--red)';
+      noteEl.textContent = `⚠ Below monthly interest (${fmt(minInterest)}). Balance will grow.`;
+    } else if (existingPaymentOverride < minExistingPayment) {
+      noteEl.style.color = 'var(--gold)';
+      noteEl.textContent = `Below min. amortized pmt (${fmt(minExistingPayment)}). Payoff will extend.`;
+    } else if (existingPaymentOverride > minExistingPayment * 1.005) {
+      const extraPrincipal = existingPaymentOverride - minExistingPayment;
+      noteEl.style.color = 'var(--green)';
+      noteEl.textContent = `+${fmt(extraPrincipal)}/mo extra principal vs min pmt of ${fmt(minExistingPayment)}.`;
+    } else {
+      noteEl.style.color = 'var(--text-faint)';
+      noteEl.textContent = `≈ minimum amortized payment (${fmt(minExistingPayment)}).`;
+    }
+  } else {
+    noteEl.style.color = 'var(--text-faint)';
+    noteEl.textContent = `Leave at 0 to auto-compute from balance, rate & payoff date (${fmt(minExistingPayment)}/mo).`;
+  }
+
+  // ---- Simulate month by month ----
+  const labels = [];
+  const cashArr = [];
+  const debtServiceArr = [];
+
+  let cash = cashOnHand;
+  let existingBal = existingBalance;
+  let existingPaid = false;
+  let newLoanActive = false;
+  let newLoanBal = 0;
+  let newLoanPayment = 0;
+  const milestones = [];
+
+  let interestPaidOld = 0;
+  let interestPaidNew = 0;
+  let totalInterestIfHeld = 0; // counterfactual
+
+  // Track whether we did an early payoff
+  let didEarlyPayoff = false;
+  let earlyPayoffCost = 0;
+
+  for (let m = 0; m <= totalMonths; m++) {
+    const date = addMonths(today, m);
+    labels.push(fmtDate(date));
+
+    // --- Existing loan logic ---
+    let existingPaymentThisMonth = 0;
+    let existingInterest = 0;
+
+    if (!existingPaid && existingBal > 0) {
+      // Determine current rate
+      const rate = (date >= rateChangeDate) ? futureRate : currentRate;
+      existingInterest = existingBal * (rate / 100 / 12);
+      const remainingMonths = Math.max(1, monthsBetween(date, payoffDate));
+      const amortizedMin = monthlyPayment(existingBal, rate, remainingMonths);
+
+      // Determine payment this month
+      let targetPayment;
+      if (existingPaymentOverride > 0 && existingPaymentOverride >= existingInterest) {
+        // Use override, but never pay more than remaining balance + interest
+        targetPayment = Math.min(existingPaymentOverride, existingBal + existingInterest);
+      } else if (existingPaymentOverride > 0 && existingPaymentOverride < existingInterest) {
+        // Override is below interest — use it anyway (balance will grow), capped at balance
+        targetPayment = Math.min(existingPaymentOverride, existingBal + existingInterest);
+      } else {
+        targetPayment = amortizedMin;
+      }
+
+      // Early payoff?
+      if (earlyPayoff && !didEarlyPayoff && date >= earlyPayoffDate) {
+        existingPaymentThisMonth = existingBal + existingInterest; // lump sum
+        earlyPayoffCost = existingBal;
+        interestPaidOld += existingInterest;
+        existingBal = 0;
+        existingPaid = true;
+        didEarlyPayoff = true;
+        milestones.push({
+          date: fmtDate(date),
+          event: 'Early Loan Payoff',
+          cash: cash - existingPaymentThisMonth,
+          payment: 0,
+          notes: `Paid off ${fmt(earlyPayoffCost)} lump sum`,
+          type: 'payoff'
+        });
+      } else if (existingBal + existingInterest <= targetPayment + 1) {
+        // Final month — clear the balance
+        existingPaymentThisMonth = existingBal + existingInterest;
+        interestPaidOld += existingInterest;
+        existingBal = 0;
+        existingPaid = true;
+        if (!didEarlyPayoff) {
+          milestones.push({
+            date: fmtDate(date),
+            event: 'Existing Loan Paid Off',
+            cash: cash,
+            payment: 0,
+            notes: `Total interest paid: ${fmt(interestPaidOld)}`,
+            type: 'payoff'
+          });
+        }
+      } else {
+        existingPaymentThisMonth = targetPayment;
+        existingBal = existingBal * (1 + rate / 100 / 12) - existingPaymentThisMonth;
+        if (existingBal < 0) existingBal = 0;
+        interestPaidOld += existingInterest;
+      }
+    }
+
+    // Rate change milestone
+    if (m > 0) {
+      const prevDate = addMonths(today, m - 1);
+      if (!existingPaid && prevDate < rateChangeDate && date >= rateChangeDate) {
+        milestones.push({
+          date: fmtDate(date),
+          event: 'Existing Loan Rate Adjusts',
+          cash: cash,
+          payment: monthlyPayment(existingBal, futureRate, monthsBetween(date, payoffDate)),
+          notes: `Rate: ${pct(currentRate)} → ${pct(futureRate)}`,
+          type: 'rate'
+        });
+      }
+    }
+
+    // --- New loan ---
+    let newLoanPaymentThisMonth = 0;
+    let newInterest = 0;
+
+    if (!newLoanActive && date >= newLoanDate) {
+      // Calculate inflated cost
+      const yearsDelay = (newLoanDate - new Date()) / (1000 * 60 * 60 * 24 * 365.25);
+      const inflatedCost = constructionCost * Math.pow(1 + costInflation / 100, yearsDelay);
+
+      // Down payment = available cash (if toggle on)
+      let downPayment = 0;
+      if (applyFreedCash) {
+        downPayment = Math.min(cash * 0.8, inflatedCost * 0.3); // use up to 80% of cash, max 30% down
+        downPayment = Math.max(0, downPayment);
+      }
+
+      newLoanBal = inflatedCost - downPayment;
+      newLoanPayment = monthlyPayment(newLoanBal, newLoanRate, newLoanTerm);
+      newLoanActive = true;
+
+      milestones.push({
+        date: fmtDate(date),
+        event: 'New Construction Loan',
+        cash: cash - downPayment,
+        payment: newLoanPayment,
+        notes: `Cost: ${fmt(inflatedCost)} · Down: ${fmt(downPayment)} · Loan: ${fmt(newLoanBal)}`,
+        type: 'loan'
+      });
+
+      cash -= downPayment;
+    }
+
+    if (newLoanActive && newLoanBal > 0) {
+      newInterest = newLoanBal * (newLoanRate / 100 / 12);
+      newLoanPaymentThisMonth = Math.min(newLoanPayment, newLoanBal + newInterest);
+      newLoanBal = newLoanBal * (1 + newLoanRate / 100 / 12) - newLoanPaymentThisMonth;
+      if (newLoanBal < 1) newLoanBal = 0;
+      interestPaidNew += newInterest;
+    }
+
+    // Cash flow
+    const netMonthly = monthlyGiving - monthlyExpenses - existingPaymentThisMonth - newLoanPaymentThisMonth;
+    cash += netMonthly;
+
+    cashArr.push(Math.round(cash));
+    debtServiceArr.push(Math.round(existingPaymentThisMonth + newLoanPaymentThisMonth));
+  }
+
+  // ---- Compute counterfactual interest (if we had NOT paid early) ----
+  // Already simulated above for the chosen path. For savings display, estimate vs carrying at adjusted rate.
+  let interestSavings = 0;
+  if (earlyPayoff) {
+    // Rough: interest that would have accrued between earlyPayoffDate and payoffDate at adjusted rate
+    const epMonths = monthsBetween(earlyPayoffDate, payoffDate);
+    let bal2 = earlyPayoffCost;
+    const pmt2 = monthlyPayment(bal2, futureRate, epMonths);
+    for (let i = 0; i < epMonths; i++) {
+      const int = bal2 * futureRate / 100 / 12;
+      interestSavings += int;
+      bal2 = bal2 * (1 + futureRate/100/12) - pmt2;
+      if (bal2 < 0) break;
+    }
+    // But we also lose the earnings on that cash (opportunity cost ~= savings rate)
+    // Simple: savings - opportunity cost on earlyPayoffCost at ~4% for the period
+    const oppCost = earlyPayoffCost * 0.04 * epMonths / 12;
+    interestSavings -= oppCost;
+  }
+
+  // ---- New loan projected total interest ----
+  let totalNewInterest = newLoanPayment * newLoanTerm - (constructionCost * Math.pow(1 + costInflation / 100, (newLoanDate - new Date()) / (1000*60*60*24*365.25)));
+  const yearsD = (newLoanDate - new Date()) / (1000 * 60 * 60 * 24 * 365.25);
+  const inflatedCostFinal = constructionCost * Math.pow(1 + costInflation / 100, Math.max(0, yearsD));
+  let downPmt = 0;
+  if (applyFreedCash) { downPmt = Math.min(cashArr[0] * 0.8 || 0, inflatedCostFinal * 0.3); }
+  const loanAmt = inflatedCostFinal - Math.max(0, downPmt);
+  const pmt = monthlyPayment(loanAmt, newLoanRate, newLoanTerm);
+  totalNewInterest = pmt * newLoanTerm - loanAmt;
+
+  const minCash = Math.min(...cashArr);
+  const cashAtNewLoan = cashArr[Math.min(monthsBetween(today, newLoanDate), cashArr.length - 1)] || 0;
+
+  // ---- Summary Cards ----
+  const summaryData = [
+    {
+      label: 'Total Interest — Existing Loan',
+      value: fmt(interestPaidOld),
+      sub: earlyPayoff ? 'paid (early payoff path)' : 'projected to payoff',
+      cls: ''
+    },
+    {
+      label: 'Total Interest — New Loan',
+      value: fmt(totalNewInterest),
+      sub: `over ${newLoanTerm / 12} year term`,
+      cls: ''
+    },
+    {
+      label: 'Construction Cost at Loan Date',
+      value: fmtM(inflatedCostFinal),
+      sub: `vs ${fmtM(constructionCost)} today (+${pct(costInflation)}/yr)`,
+      cls: inflatedCostFinal > constructionCost * 1.1 ? 'danger' : ''
+    },
+    {
+      label: earlyPayoff ? 'Net Interest Savings (Early Payoff)' : 'Interest Saved by Early Payoff',
+      value: earlyPayoff ? (interestSavings > 0 ? '+' + fmt(interestSavings) : fmt(interestSavings)) : 'N/A',
+      sub: earlyPayoff ? 'vs carrying to term (net of opp. cost)' : 'toggle on to see',
+      cls: earlyPayoff ? (interestSavings > 0 ? 'good' : 'danger') : 'info'
+    },
+    {
+      label: 'Cash at New Loan Date',
+      value: fmt(cashAtNewLoan),
+      sub: 'reserves remaining',
+      cls: cashAtNewLoan < 50000 ? 'danger' : cashAtNewLoan > 200000 ? 'good' : ''
+    },
+    {
+      label: 'Minimum Cash (All Time)',
+      value: fmt(minCash),
+      sub: 'cash floor over projection',
+      cls: minCash < 0 ? 'danger' : minCash < 50000 ? 'warn' : 'good'
+    }
+  ];
+
+  const grid = $('summaryGrid');
+  grid.innerHTML = summaryData.map(c => `
+    <div class="summary-card ${c.cls}">
+      <div class="card-label">${c.label}</div>
+      <div class="card-value">${c.value}</div>
+      <div class="card-sub">${c.sub}</div>
+    </div>
+  `).join('');
+
+  // ---- Verdict ----
+  const verdictBox = $('verdictBox');
+  const verdictText = $('verdictText');
+  let verdictClass = '';
+  let verdict = '';
+
+  const monthsUntilNewLoan = monthsBetween(today, newLoanDate);
+  const monthsUntilRateChange = monthsBetween(today, rateChangeDate);
+  const willHitAdjustedRate = !earlyPayoff && monthsUntilNewLoan > monthsUntilRateChange;
+
+  if (minCash < 0) {
+    verdictClass = 'warn';
+    verdict = `<strong>Cash reserves go negative</strong> — this scenario is not viable without additional fundraising or a line of credit. 
+    At current giving and expenses, the bottom occurs around month ${cashArr.findIndex(v => v < 0) + 1}. 
+    Consider delaying the new loan, increasing the giving baseline, or reducing operating expenses.`;
+  } else if (earlyPayoff && interestSavings > 10000) {
+    verdictClass = 'ok';
+    verdict = `Early payoff saves approximately <span class="highlight">${fmt(interestSavings)}</span> net of opportunity cost. 
+    The main risk is cash depletion — with <strong>${fmt(cashAtNewLoan)}</strong> on hand at the new loan date${cashAtNewLoan < 100000 ? ', reserves will be thin' : ', reserves look healthy'}. 
+    ${willHitAdjustedRate ? 'Carrying the old loan through the rate adjustment significantly increases its cost.' : 'Since the old loan is resolved before the rate change, carrying it avoids the adjusted rate entirely.'}`;
+  } else if (earlyPayoff && interestSavings <= 0) {
+    verdictClass = 'warn';
+    verdict = `Early payoff in this scenario does <strong>not</strong> produce net savings — the opportunity cost of deploying that cash exceeds the interest avoided. 
+    The rate differential (${pct(futureRate)} vs alternative uses) may not justify locking up <span class="highlight">${fmt(earlyPayoffCost)}</span> in early repayment.
+    Consider keeping reserves liquid and applying them as down payment on the new loan instead.`;
+  } else {
+    verdictClass = '';
+    verdict = `Carrying the existing loan to its natural payoff date, with the new loan beginning 
+    <strong>${fmtDate(newLoanDate)}</strong>. 
+    ${willHitAdjustedRate ? `<strong>Note:</strong> the existing loan will adjust from ${pct(currentRate)} to ${pct(futureRate)} in ${fmtDate(rateChangeDate)} — this adds approximately <span class="highlight">${fmt((futureRate - currentRate)/100/12 * existingBalance * monthsBetween(rateChangeDate, payoffDate))}</span> in interest cost over the remaining term.` : 
+    'The existing loan will be paid off before the rate adjustment takes effect — good timing.'}
+    Cash at new loan date: <span class="highlight">${fmt(cashAtNewLoan)}</span>.`;
+  }
+
+  verdictBox.className = 'verdict ' + verdictClass;
+  verdictText.innerHTML = verdict;
+
+  // ---- Timeline chips ----
+  $('timelineChips').innerHTML = `
+    <span class="event-chip chip-rate">⬆ Rate adj: ${fmtDate(rateChangeDate)}</span>
+    <span class="event-chip chip-payoff">${earlyPayoff ? '⚡ Early payoff: ' + fmtDate(earlyPayoffDate) : '✓ Payoff: ' + fmtDate(payoffDate)}</span>
+    <span class="event-chip chip-loan">🏗 New loan: ${fmtDate(newLoanDate)}</span>
+  `;
+
+  // ---- Charts ----
+  const chartLabels = labels.filter((_, i) => i % 3 === 0);
+  const cashSliced = cashArr.filter((_, i) => i % 3 === 0);
+  const debtSliced = debtServiceArr.filter((_, i) => i % 3 === 0);
+
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#23221c',
+        borderColor: '#38362c',
+        borderWidth: 1,
+        titleColor: '#c8a84b',
+        bodyColor: '#8a8272',
+        titleFont: { family: 'JetBrains Mono', size: 11 },
+        bodyFont: { family: 'JetBrains Mono', size: 11 },
+        callbacks: { label: ctx => ' ' + fmt(ctx.raw) }
+      }
+    },
+    scales: {
+      x: {
+        ticks: { color: '#504e42', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 12 },
+        grid: { color: '#1a1914' }
+      },
+      y: {
+        ticks: { color: '#504e42', font: { family: 'JetBrains Mono', size: 9 }, callback: v => fmtM(v) },
+        grid: { color: '#23221c' }
+      }
+    }
+  };
+
+  if (cashChart) cashChart.destroy();
+  cashChart = new Chart($('cashChart'), {
+    type: 'line',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        data: cashSliced,
+        borderColor: '#c8a84b',
+        backgroundColor: 'rgba(200,168,75,0.07)',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.3
+      }, {
+        data: chartLabels.map(() => 0),
+        borderColor: '#c0503a44',
+        borderWidth: 1,
+        borderDash: [4, 4],
+        pointRadius: 0,
+        fill: false
+      }]
+    },
+    options: chartDefaults
+  });
+
+  if (debtChart) debtChart.destroy();
+  debtChart = new Chart($('debtChart'), {
+    type: 'bar',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        label: 'Monthly Debt Service',
+        data: debtSliced,
+        backgroundColor: 'rgba(90,130,176,0.55)',
+        borderColor: '#5a82b0',
+        borderWidth: 0,
+        borderRadius: 1
+      }]
+    },
+    options: {
+      ...chartDefaults,
+      plugins: {
+        ...chartDefaults.plugins,
+        tooltip: {
+          ...chartDefaults.plugins.tooltip,
+          callbacks: { label: ctx => ' ' + fmt(ctx.raw) + '/mo' }
+        }
+      }
+    }
+  });
+
+  // ---- Milestones table ----
+  const tbody = $('milestoneBody');
+  tbody.innerHTML = milestones.map(m => {
+    const cashCls = m.cash < 0 ? 'neg' : m.cash < 100000 ? 'warn' : 'pos';
+    return `<tr>
+      <td class="mono">${m.date}</td>
+      <td>${m.event}</td>
+      <td class="mono ${cashCls}">${fmt(m.cash)}</td>
+      <td class="mono">${m.payment > 0 ? fmt(m.payment) + '/mo' : '—'}</td>
+      <td style="font-size:0.75rem; color:var(--text-faint)">${m.notes}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ---- Wire up inputs ----
+document.querySelectorAll('input').forEach(el => {
+  el.addEventListener('input', recalc);
+  el.addEventListener('change', recalc);
+});
+
+$('earlyPayoff').addEventListener('change', () => {
+  $('earlyPayoffDateField').style.display = $('earlyPayoff').checked ? 'block' : 'none';
+  recalc();
+});
+
+recalc();
+</script>
+</body>
+</html>
